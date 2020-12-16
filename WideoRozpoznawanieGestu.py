@@ -2,7 +2,7 @@
 """
 Created on Thu Nov  5 16:59:05 2020
 
-@author: emilk
+@author: emilk, wiktorP
 """
 
 import tkinter as tk
@@ -18,6 +18,8 @@ import presentation
 
 
 class App:
+    left_finger = 0
+
     def __init__(self, window, window_title, video_source=0):
 
         self.window = window
@@ -106,7 +108,7 @@ class App:
         # Wyszukiwanie konturów
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Wyszukiwanie konturu dłoni, czyli max w tym przypadku
+        # Wyszukiwanie konturu dłoni, czyli max kontur w tym przypadku
         cnt = max(contours, key=lambda x: cv2.contourArea(x))
 
         # Aproksymacja
@@ -127,9 +129,10 @@ class App:
         hull = cv2.convexHull(approx, returnPoints=False)
         defects = cv2.convexityDefects(approx, hull)
 
-        # defects = liczba defektów
-        defects = 0
+        # fingers = liczba znalezionych palców
+        fingers = 0
 
+        # znadjywanie palców
         for i in range(defects.shape[0]):
             s, e, f, d = defects[i, 0]
             start = tuple(approx[s][0])
@@ -148,29 +151,33 @@ class App:
             angle = math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c)) * 57
 
             if angle <= 90 and d > 30:
-                defects += 1
+                fingers += 1
+                print(str(angle) + " " + str(d) + " " + str(a) + " " + str(b) + " " + str(c))
                 cv2.circle(roi, far, 3, [255, 0, 0], -1)
-
+                # do gestów w prawo i w lewo
+                if c < 60:
+                    App.left_finger += 1
+                if c > 60:
+                    App.left_finger = 0
+            # draw lines around hand
             cv2.line(roi, start, end, [0, 255, 0], 2)
-        defects += 1
 
-        if 13000 > hand_area > 12100 and 20 > handless_area > 13:
+        fingers += 1
+        print(str(App.left_finger))
+        if 15000 > hand_area > 13000 and 20 > handless_area > 13 and fingers == 1:
             wynik = 'Start'
-        elif hand_area > 30000 and 9 > handless_area > 5 and defects >= 1:
+        elif hand_area > 20000 and 33 > handless_area > 20 and fingers >= 4:
             wynik = 'Stop'
-        elif 36000 > hand_area > 30000 and 17 > handless_area > 10 and defects == 1:
+        elif 20000 > hand_area > 15000 and 20 > handless_area > 10 and fingers == 1 and App.left_finger == 0:
             wynik = 'Następny'
-        elif 36000 > hand_area > 30000 and 17 > handless_area > 10 and defects == 1:
-            wynik = 'Następny'
-
+        elif 20000 > hand_area > 15000 and 20 > handless_area > 10 and fingers == 1 and App.left_finger > 0:
+            wynik = 'Poprzedni'
         else:
             wynik = 'Nie rozpoznano gestu'
-            
-        
 
-        self.t.insert(tk.INSERT, wynik + "\n" + str(hand_area) + "\n" + str(handless_area) + "\n" + str(defects) + "\n")
-        print(wynik + "\n" + str(hand_area) + "\n" + str(handless_area) + "\n" + str(defects) + "\n")
-        #sterowanie prezentacja
+        self.t.insert(tk.INSERT, wynik + "\n" + str(hand_area) + "\n" + str(handless_area) + "\n" + str(fingers) + "\n")
+        print(wynik + "\n" + str(hand_area) + "\n" + str(handless_area) + "\n" + str(fingers) + "\n")
+        # sterowanie prezentacja
         presentation.presentation_control(wynik)
         if ret:
             # Rysowanie obrazu z kamery
